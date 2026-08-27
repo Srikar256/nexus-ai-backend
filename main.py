@@ -3,9 +3,8 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pinecone import Pinecone
 from huggingface_hub import InferenceClient
-
+from pinecone import Pinecone
 
 # --------------------------------------------------
 # Environment
@@ -72,21 +71,17 @@ print(f"Hugging Face model configured: {HF_MODEL}")
 # Search endpoint
 # --------------------------------------------------
 
+
 @app.get("/search")
 def search_database(q: str):
 
     if not q or not q.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Search query cannot be empty."
-        )
+        raise HTTPException(status_code=400, detail="Search query cannot be empty.")
 
     try:
-
         # BGE query instruction
         formatted_query = (
-            "Represent this sentence for searching relevant passages: "
-            + q.strip()
+            "Represent this sentence for searching relevant passages: " + q.strip()
         )
 
         print(f"Generating embedding for: {q}")
@@ -111,37 +106,28 @@ def search_database(q: str):
 
         print(f"Embedding generated. Dimensions: {len(query_vector)}")
 
-    except Exception as e:
-
+    except Exception as e:  # noqa: BLE001
         print(f"Hugging Face embedding error: {e}")
 
         raise HTTPException(
-            status_code=500,
-            detail="Failed to generate search embedding."
+            status_code=500, detail="Failed to generate search embedding."
         )
-
 
     # --------------------------------------------------
     # Pinecone search
     # --------------------------------------------------
 
     try:
-
         result = index.query(
             vector=query_vector,
             top_k=5,
             include_metadata=True,
         )
 
-    except Exception as e:
-
+    except Exception as e:  # noqa: BLE001
         print(f"Pinecone search error: {e}")
 
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to search Pinecone."
-        )
-
+        raise HTTPException(status_code=500, detail="Failed to search Pinecone.")
 
     # --------------------------------------------------
     # Format results
@@ -150,7 +136,6 @@ def search_database(q: str):
     matches = []
 
     for match in result.get("matches", []):
-
         metadata = match.get("metadata", {})
 
         matches.append(
@@ -160,13 +145,9 @@ def search_database(q: str):
                 "genre": metadata.get("genre", "Unknown"),
                 "year": metadata.get("year", "Unknown"),
                 "rating": metadata.get("rating", "Unknown"),
-                "similarity_score": round(
-                    match.get("score", 0),
-                    4
-                ),
+                "similarity_score": round(match.get("score", 0), 4),
             }
         )
-
 
     return {
         "search_query": q,

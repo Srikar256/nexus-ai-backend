@@ -2,9 +2,8 @@ import os
 
 import pandas as pd
 from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer
 from pinecone import Pinecone
-
+from sentence_transformers import SentenceTransformer
 
 # --------------------------------------------------
 # Environment
@@ -83,29 +82,23 @@ print(f"Rows selected for indexing: {len(df)}")
 # Create and upload embeddings
 # --------------------------------------------------
 
-total_batches = (
-    len(df) // BATCH_SIZE
-    + (1 if len(df) % BATCH_SIZE != 0 else 0)
-)
+total_batches = len(df) // BATCH_SIZE + (1 if len(df) % BATCH_SIZE != 0 else 0)
 
 print(f"Starting upload in {total_batches} batches...")
 
 
 for i in range(0, len(df), BATCH_SIZE):
-
-    batch = df.iloc[i:i + BATCH_SIZE]
+    batch = df.iloc[i : i + BATCH_SIZE]
 
     texts = []
     metadata_list = []
     ids = []
-
 
     # ----------------------------------------------
     # Prepare text
     # ----------------------------------------------
 
     for idx, row in batch.iterrows():
-
         year_clean = str(row["Year"]).replace(".0", "")
 
         rich_text = (
@@ -130,15 +123,11 @@ for i in range(0, len(df), BATCH_SIZE):
             }
         )
 
-
     # ----------------------------------------------
     # Generate embeddings for entire batch
     # ----------------------------------------------
 
-    print(
-        f"Generating embeddings for batch "
-        f"{(i // BATCH_SIZE) + 1}/{total_batches}..."
-    )
+    print(f"Generating embeddings for batch {(i // BATCH_SIZE) + 1}/{total_batches}...")
 
     embeddings = model.encode(
         texts,
@@ -146,7 +135,6 @@ for i in range(0, len(df), BATCH_SIZE):
         show_progress_bar=False,
         normalize_embeddings=False,
     )
-
 
     # ----------------------------------------------
     # Prepare Pinecone vectors
@@ -159,7 +147,6 @@ for i in range(0, len(df), BATCH_SIZE):
         embeddings,
         metadata_list,
     ):
-
         vectors_to_upload.append(
             (
                 vector_id,
@@ -168,19 +155,13 @@ for i in range(0, len(df), BATCH_SIZE):
             )
         )
 
-
     # ----------------------------------------------
     # Upload to Pinecone
     # ----------------------------------------------
 
-    index.upsert(
-        vectors=vectors_to_upload
-    )
+    index.upsert(vectors=vectors_to_upload)
 
-    print(
-        f"Uploaded batch "
-        f"{(i // BATCH_SIZE) + 1}/{total_batches}"
-    )
+    print(f"Uploaded batch {(i // BATCH_SIZE) + 1}/{total_batches}")
 
 
 print()
