@@ -1,0 +1,32 @@
+name: Ruff formatting and linting
+
+# Tells GitHub to run this workflow automatically on every push or pull request
+on: [push, pull_request]
+
+jobs:
+  build:
+    # Provisions a fresh, temporary cloud server to test your code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+          
+      # Runs the linter to catch syntax errors or unused imports.
+      # The github format flag enables automatic inline annotations.
+      - name: Run Ruff Linter
+        run: ruff check --output-format=github .
+        continue-on-error: false
+        
+      # Checks if the code matches professional formatting standards
+      - name: Run Ruff Formatter
+        run: ruff format --check .
+        continue-on-error: false
