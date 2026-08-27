@@ -1,8 +1,9 @@
 import os
+import time
+import requests
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sentence_transformers import SentenceTransformer
 from pinecone import Pinecone
 
 load_dotenv()
@@ -22,19 +23,35 @@ print("Connecting to database...")
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index("semantic-search")
 
-print("Waking up the BAAI model...")
-# --- UPGRADED MODEL HERE ---
-model = SentenceTransformer('BAAI/bge-small-en-v1.5')
+# The free HuggingFace API Endpoint for your exact model
+HF_API_URL = "https://api-inference.huggingface.co/pipeline/feature-extraction/BAAI/bge-small-en-v1.5"
 
 @app.get("/search")
 async def search_database(q: str):
-    # Add a prompt instruction that makes BAAI models perform even better
     formatted_query = f"Represent this sentence for searching relevant passages: {q}"
-    query_vector = model.encode(formatted_query).tolist()
     
+    # 1. Ping HuggingFace to do the AI math (Uses 0MB of Render's RAM!)
+    response = requests.post(HF_API_URL, json={"inputs": formatted_query})
+    
+    # Handle HuggingFace "Cold Start" (If their model is asleep, wait and retry)
+    if response.status_code == 503:
+        print("Model is asleep. Waiting 15 seconds for HuggingFace to wake it up...")
+        time.sleep(15) 
+        response = requests.post(HF_API_URL, json={"inputs": formatted_query}) 
+        
+    if response.status_code != 200:
+        raise HTTPException(status_code=500, detail="HuggingFace API Error")
+        
+    query_vector = response.json()
+    
+    # Safely flatten the array just in case HuggingFace returns a nested list
+    while isinstance(query_vector, list) and isinstance(query_vector[0], list):
+        query_vector = query_vector[0]
+        
+    # 2. Search Pinecone
     result = index.query(
         vector=query_vector,
-        top_k=5, # Pulling the top 5 best matches
+        top_k=5, 
         include_metadata=True
     )
     
